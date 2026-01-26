@@ -109,10 +109,24 @@ telegram-channel-meaning/
 │   ├── interactive.py         # Интерактивное меню
 │   ├── command.py             # CLI команды
 │   └── webhook.py             # FastAPI сервер
-└── utils/
-    ├── message_chains.py      # Логика цепочек сообщений
-    └── formatters.py          # Форматирование вывода
+├── utils/
+│   ├── message_chains.py      # Логика цепочек сообщений
+│   └── formatters.py          # Форматирование вывода
+└── docs/                      # Документация
+    ├── architecture.md        # Архитектура приложения
+    ├── structure.md           # Структура проекта
+    ├── database.md            # Схема базы данных
+    └── implementation.md      # Детали реализации
 ```
+
+## Документация
+
+Подробная документация находится в директории [docs/](docs/):
+
+- [Архитектура приложения](docs/architecture.md) - диаграммы и описание компонентов
+- [Структура проекта](docs/structure.md) - описание файлов и директорий
+- [Схема базы данных](docs/database.md) - ER-диаграмма и SQL-схема
+- [Детали реализации](docs/implementation.md) - описание API всех модулей
 
 ## Аргументы командной строки
 
