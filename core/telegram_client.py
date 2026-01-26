@@ -115,6 +115,7 @@ class TelegramClientWrapper:
     async def get_dialogs(self, limit: int = None) -> List[Dict[str, Any]]:
         """
         Получает список диалогов (каналов, чатов, личных сообщений).
+        Показывает только неархивированные диалоги.
         
         Args:
             limit: Ограничение количества
@@ -122,7 +123,7 @@ class TelegramClientWrapper:
         Returns:
             Список диалогов
         """
-        dialogs = await self.client.get_dialogs(limit=limit)
+        dialogs = await self.client.get_dialogs(limit=limit, archived=False)
         result = []
         
         for dialog in dialogs:

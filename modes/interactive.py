@@ -168,7 +168,7 @@ class InteractiveMode:
         print_header("Все каналы и чаты")
         
         print("\nЗагрузка...")
-        dialogs = await self.telegram.get_dialogs(limit=50)
+        dialogs = await self.telegram.get_dialogs()
         
         clear_screen()
         print_header("Все каналы и чаты")
