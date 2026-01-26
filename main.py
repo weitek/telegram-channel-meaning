@@ -13,6 +13,14 @@ import asyncio
 import os
 import sys
 
+# Загрузка переменных окружения из .env файла (опционально)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv не установлен, используем только системные переменные
+    pass
+
 
 def check_environment():
     """Проверяет наличие необходимых переменных окружения."""
@@ -29,13 +37,17 @@ def check_environment():
         print("Ошибка: Отсутствуют переменные окружения:")
         for var in missing:
             print(f"  - {var}")
-        print("\nУстановите их перед запуском:")
-        print("  Windows (PowerShell):")
-        print('    $env:TELEGRAM_API_ID="your_api_id"')
-        print('    $env:TELEGRAM_API_HASH="your_api_hash"')
-        print("\n  Linux/macOS:")
-        print('    export TELEGRAM_API_ID="your_api_id"')
-        print('    export TELEGRAM_API_HASH="your_api_hash"')
+        print("\nУстановите их одним из способов:")
+        print("\n1. Создайте файл .env (скопируйте .env.example):")
+        print("   TELEGRAM_API_ID=your_api_id")
+        print("   TELEGRAM_API_HASH=your_api_hash")
+        print("\n2. Или установите переменные окружения:")
+        print("   Windows (PowerShell):")
+        print('     $env:TELEGRAM_API_ID="your_api_id"')
+        print('     $env:TELEGRAM_API_HASH="your_api_hash"')
+        print("   Linux/macOS:")
+        print('     export TELEGRAM_API_ID="your_api_id"')
+        print('     export TELEGRAM_API_HASH="your_api_hash"')
         print("\nПолучить API credentials можно на https://my.telegram.org/apps")
         sys.exit(1)
     

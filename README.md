@@ -39,7 +39,29 @@ pip install -r requirements.txt
 ## Настройка
 
 1. Получите API credentials на https://my.telegram.org/apps
-2. Установите переменные окружения:
+
+2. Настройте переменные окружения (выберите один из способов):
+
+### Способ 1: Файл .env (рекомендуется)
+
+Скопируйте файл примера и заполните своими данными:
+
+```bash
+# Windows
+copy .env.example .env
+
+# Linux/macOS
+cp .env.example .env
+```
+
+Затем отредактируйте `.env` и укажите свои credentials:
+
+```env
+TELEGRAM_API_ID=your_api_id_here
+TELEGRAM_API_HASH=your_api_hash_here
+```
+
+### Способ 2: Переменные окружения системы
 
 ```bash
 # Windows (PowerShell)
@@ -50,6 +72,12 @@ $env:TELEGRAM_API_HASH="your_api_hash"
 export TELEGRAM_API_ID="your_api_id"
 export TELEGRAM_API_HASH="your_api_hash"
 ```
+
+**Примечание:** Для использования `.env` файла установите `python-dotenv`:
+```bash
+pip install python-dotenv
+```
+(уже включено в `requirements.txt`)
 
 ## Использование
 
