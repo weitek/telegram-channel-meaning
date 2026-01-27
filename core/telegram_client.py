@@ -87,7 +87,8 @@ class TelegramClientWrapper:
             self._client = TelegramClient(
                 self.session_path,
                 self.api_id,
-                self.api_hash
+                self.api_hash,
+                receive_updates=False  # Отключаем получение обновлений для избежания ошибок с устаревшими message ID
             )
         return self._client
     
