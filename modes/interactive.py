@@ -74,6 +74,31 @@ class InteractiveMode:
         self.config = Config()
         # Количество диалогов на странице из переменной окружения
         self.dialogs_per_page = int(os.environ.get('DIALOGS_PER_PAGE', '20'))
+        # Ширина столбца "Название" в таблице диалогов/каналов
+        self.dialogs_name_col_width = int(os.environ.get('DIALOGS_NAME_COL_WIDTH', '30'))
+        if self.dialogs_name_col_width < 10:
+            self.dialogs_name_col_width = 10
+
+    @staticmethod
+    def _get_dialog_type_label(dialog: Dict[str, Any]) -> str:
+        """Возвращает человекочитаемый тип диалога."""
+        if dialog.get('is_channel'):
+            return "Канал"
+        if dialog.get('is_group'):
+            return "Группа"
+        return "Личный"
+
+    @staticmethod
+    def _fit_text(text: Optional[str], width: int) -> str:
+        """Обрезает строку под ширину колонки (с многоточием)."""
+        if width <= 0:
+            return ""
+        s = (text or "-").replace("\n", " ")
+        if len(s) <= width:
+            return s
+        if width == 1:
+            return "…"
+        return s[: width - 1] + "…"
     
     async def run(self):
         """Запускает интерактивный режим."""
@@ -319,24 +344,30 @@ class InteractiveMode:
             page_dialogs = dialogs[start_idx:end_idx]
             
             print(f"\nСтраница {current_page} из {total_pages} (всего диалогов: {len(dialogs)})")
-            print(f"\n{'#':<4} {'Тип':<10} {'ID':<15} {'Название':<30} {'Выбран'}")
-            print("-" * 70)
+            header = (
+                f"{'#':<4} "
+                f"{'Выбран':<7} "
+                f"{'Тип':<10} "
+                f"{'ID':<15} "
+                f"{'Название':<{self.dialogs_name_col_width}}"
+            )
+            print("\n" + header)
+            print("-" * len(header))
             
             for i, dialog in enumerate(page_dialogs, start=start_idx + 1):
-                if dialog['is_channel']:
-                    dtype = "Канал"
-                elif dialog['is_group']:
-                    dtype = "Группа"
-                else:
-                    dtype = "Личный"
-                
-                name = (dialog['name'] or '-')[:28]
+                dtype = self._get_dialog_type_label(dialog)
+                name = self._fit_text(dialog.get('name') or "-", self.dialogs_name_col_width)
                 is_selected = "✓" if dialog['id'] in selected else ""
-                
-                print(f"{i:<4} {dtype:<10} {dialog['id']:<15} {name:<30} {is_selected}")
+                print(
+                    f"{i:<4} "
+                    f"{is_selected:<7} "
+                    f"{dtype:<10} "
+                    f"{dialog['id']:<15} "
+                    f"{name:<{self.dialogs_name_col_width}}"
+                )
             
             # Навигация
-            print("\n" + "-" * 70)
+            print("\n" + "-" * len(header))
             if total_pages > 1:
                 nav_options = []
                 nav_actions = []
@@ -424,6 +455,7 @@ class InteractiveMode:
             selected = self.config.get_selected_channels()
             
             if selected:
+                selected_set = set(selected)
                 # Получаем информацию о всех выбранных каналах
                 selected_dialogs = []
                 for channel_id in selected:
@@ -447,8 +479,27 @@ class InteractiveMode:
                 selected_dialogs = self._sort_dialogs(selected_dialogs, selected)
                 
                 print("\nТекущие выбранные каналы:")
+                header = (
+                    f"{'#':<4} "
+                    f"{'Выбран':<7} "
+                    f"{'Тип':<10} "
+                    f"{'ID':<15} "
+                    f"{'Название':<{self.dialogs_name_col_width}}"
+                )
+                print("\n" + header)
+                print("-" * len(header))
+
                 for i, dialog in enumerate(selected_dialogs, 1):
-                    print(f"  {i}. {dialog['id']} - {dialog['name']}")
+                    dtype = self._get_dialog_type_label(dialog)
+                    name = self._fit_text(dialog.get('name') or "-", self.dialogs_name_col_width)
+                    is_selected = "✓" if dialog.get('id') in selected_set else ""
+                    print(
+                        f"{i:<4} "
+                        f"{is_selected:<7} "
+                        f"{dtype:<10} "
+                        f"{dialog['id']:<15} "
+                        f"{name:<{self.dialogs_name_col_width}}"
+                    )
             else:
                 print("\n  Нет выбранных каналов")
             

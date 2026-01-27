@@ -59,6 +59,12 @@ cp .env.example .env
 ```env
 TELEGRAM_API_ID=your_api_id_here
 TELEGRAM_API_HASH=your_api_hash_here
+
+# (опционально) Настройки интерактивного режима
+# Количество диалогов на странице при просмотре списка каналов/чатов
+DIALOGS_PER_PAGE=20
+# Ширина столбца "Название" в таблице списка каналов/чатов
+DIALOGS_NAME_COL_WIDTH=30
 ```
 
 ### Способ 2: Переменные окружения системы
