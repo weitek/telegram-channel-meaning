@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -71,6 +72,8 @@ class InteractiveMode:
         self.telegram: Optional[TelegramClientWrapper] = None
         self.database = Database()
         self.config = Config()
+        # Количество диалогов на странице из переменной окружения
+        self.dialogs_per_page = int(os.environ.get('DIALOGS_PER_PAGE', '20'))
     
     async def run(self):
         """Запускает интерактивный режим."""
@@ -163,35 +166,86 @@ class InteractiveMode:
                 await self.fetch_messages_menu()
     
     async def show_all_dialogs(self):
-        """Показывает все диалоги."""
-        clear_screen()
-        print_header("Все каналы и чаты")
-        
+        """Показывает все диалоги с постраничной навигацией."""
         print("\nЗагрузка...")
         dialogs = await self.telegram.get_dialogs()
         
-        clear_screen()
-        print_header("Все каналы и чаты")
+        if not dialogs:
+            clear_screen()
+            print_header("Все каналы и чаты")
+            print("\n  Нет доступных диалогов")
+            wait_for_enter()
+            return
         
         selected = self.config.get_selected_channels()
+        total_pages = (len(dialogs) + self.dialogs_per_page - 1) // self.dialogs_per_page
+        current_page = 1
         
-        print(f"\n{'#':<4} {'Тип':<10} {'ID':<15} {'Название':<30} {'Выбран'}")
-        print("-" * 70)
-        
-        for i, dialog in enumerate(dialogs, 1):
-            if dialog['is_channel']:
-                dtype = "Канал"
-            elif dialog['is_group']:
-                dtype = "Группа"
+        while True:
+            clear_screen()
+            print_header("Все каналы и чаты")
+            
+            # Вычисляем диапазон для текущей страницы
+            start_idx = (current_page - 1) * self.dialogs_per_page
+            end_idx = min(start_idx + self.dialogs_per_page, len(dialogs))
+            page_dialogs = dialogs[start_idx:end_idx]
+            
+            print(f"\nСтраница {current_page} из {total_pages} (всего диалогов: {len(dialogs)})")
+            print(f"\n{'#':<4} {'Тип':<10} {'ID':<15} {'Название':<30} {'Выбран'}")
+            print("-" * 70)
+            
+            for i, dialog in enumerate(page_dialogs, start=start_idx + 1):
+                if dialog['is_channel']:
+                    dtype = "Канал"
+                elif dialog['is_group']:
+                    dtype = "Группа"
+                else:
+                    dtype = "Личный"
+                
+                name = (dialog['name'] or '-')[:28]
+                is_selected = "✓" if dialog['id'] in selected else ""
+                
+                print(f"{i:<4} {dtype:<10} {dialog['id']:<15} {name:<30} {is_selected}")
+            
+            # Навигация
+            print("\n" + "-" * 70)
+            if total_pages > 1:
+                nav_options = []
+                nav_actions = []
+                
+                if current_page > 1:
+                    nav_options.append("Предыдущая страница")
+                    nav_actions.append('prev')
+                
+                if current_page < total_pages:
+                    nav_options.append("Следующая страница")
+                    nav_actions.append('next')
+                
+                nav_options.append("Назад")
+                nav_actions.append('back')
+                
+                print("\nНавигация:")
+                for i, option in enumerate(nav_options, 1):
+                    print(f"  {i}. {option}")
+                print("  0. Назад")
+                
+                choice = get_choice(len(nav_options))
+                
+                if choice == 0:
+                    break
+                
+                if choice <= len(nav_actions):
+                    action = nav_actions[choice - 1]
+                    if action == 'prev':
+                        current_page -= 1
+                    elif action == 'next':
+                        current_page += 1
+                    elif action == 'back':
+                        break
             else:
-                dtype = "Личный"
-            
-            name = (dialog['name'] or '-')[:28]
-            is_selected = "✓" if dialog['id'] in selected else ""
-            
-            print(f"{i:<4} {dtype:<10} {dialog['id']:<15} {name:<30} {is_selected}")
-        
-        wait_for_enter()
+                print("\nНажмите Enter для возврата...")
+                input()
+                break
     
     async def show_dialog_info(self):
         """Показывает информацию о конкретном диалоге."""
