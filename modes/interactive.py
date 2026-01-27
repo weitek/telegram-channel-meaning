@@ -212,17 +212,14 @@ class InteractiveMode:
             if total_pages > 1:
                 nav_options = []
                 nav_actions = []
-                
-                if current_page > 1:
-                    nav_options.append("Предыдущая страница")
-                    nav_actions.append('prev')
-                
+
                 if current_page < total_pages:
                     nav_options.append("Следующая страница")
                     nav_actions.append('next')
                 
-                nav_options.append("Назад")
-                nav_actions.append('back')
+                if current_page > 1:
+                    nav_options.append("Предыдущая страница")
+                    nav_actions.append('prev')
                 
                 print("\nНавигация:")
                 for i, option in enumerate(nav_options, 1):
