@@ -26,12 +26,15 @@ class Config:
         
         Args:
             config_path: Путь к файлу конфигурации. 
-                        По умолчанию config.json в директории скрипта.
+                        По умолчанию data/config.json в директории проекта.
         """
         if config_path is None:
             # Определяем путь относительно main.py
             base_dir = Path(__file__).parent.parent
-            config_path = base_dir / "config.json"
+            data_dir = base_dir / "data"
+            # Создаём папку data если не существует
+            data_dir.mkdir(exist_ok=True)
+            config_path = data_dir / "config.json"
         
         self.config_path = Path(config_path)
         self._config = self._load_config()

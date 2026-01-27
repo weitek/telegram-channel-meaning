@@ -23,11 +23,14 @@ class Database:
         
         Args:
             db_path: Путь к файлу базы данных.
-                    По умолчанию data.db в директории скрипта.
+                    По умолчанию data/data.db в директории проекта.
         """
         if db_path is None:
             base_dir = Path(__file__).parent.parent
-            db_path = base_dir / "data.db"
+            data_dir = base_dir / "data"
+            # Создаём папку data если не существует
+            data_dir.mkdir(exist_ok=True)
+            db_path = data_dir / "data.db"
         
         self.db_path = Path(db_path)
         self._init_database()

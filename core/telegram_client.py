@@ -32,21 +32,58 @@ class TelegramClientWrapper:
         Args:
             api_id: Telegram API ID
             api_hash: Telegram API Hash
-            session_path: Путь к файлу сессии (по умолчанию session.session)
+            session_path: Путь к файлу сессии (по умолчанию ищется в data/)
         """
-        if session_path is None:
-            base_dir = Path(__file__).parent.parent
-            session_path = str(base_dir / "session")
-        
         self.api_id = api_id
         self.api_hash = api_hash
+        self.base_dir = Path(__file__).parent.parent
+        self.data_dir = self.base_dir / "data"
+        
+        # Создаём папку data если не существует
+        self.data_dir.mkdir(exist_ok=True)
+        
+        if session_path is None:
+            # Ищем существующую сессию
+            session_path = self._find_existing_session()
+        
         self.session_path = session_path
         self._client: Optional[TelegramClient] = None
+    
+    def _find_existing_session(self) -> Optional[str]:
+        """
+        Ищет существующий файл сессии в папке data/.
+        
+        Returns:
+            Путь к сессии (без расширения) или None если не найдена
+        """
+        session_files = list(self.data_dir.glob("user*.session"))
+        if session_files:
+            # Берём первую найденную сессию (без расширения .session)
+            return str(session_files[0].with_suffix(''))
+        return None
+    
+    def _create_session_path(self, phone: str) -> str:
+        """
+        Создаёт путь к файлу сессии на основе номера телефона.
+        
+        Args:
+            phone: Номер телефона
+            
+        Returns:
+            Путь к файлу сессии (без расширения)
+        """
+        # Убираем все символы кроме цифр и +
+        clean_phone = ''.join(c for c in phone if c.isdigit() or c == '+')
+        return str(self.data_dir / f"user{clean_phone}")
     
     @property
     def client(self) -> TelegramClient:
         """Возвращает клиент Telethon."""
         if self._client is None:
+            if self.session_path is None:
+                raise RuntimeError(
+                    "Сессия не найдена. Сначала вызовите authorize() для создания новой сессии."
+                )
             self._client = TelegramClient(
                 self.session_path,
                 self.api_id,
@@ -61,6 +98,9 @@ class TelegramClientWrapper:
         Returns:
             True если подключение успешно
         """
+        if self.session_path is None:
+            # Сессия не найдена, нужна авторизация
+            return False
         await self.client.connect()
         return self.client.is_connected()
     
@@ -71,6 +111,8 @@ class TelegramClientWrapper:
     
     async def is_authorized(self) -> bool:
         """Проверяет, авторизован ли пользователь."""
+        if self.session_path is None:
+            return False
         return await self.client.is_user_authorized()
     
     async def authorize(self) -> bool:
@@ -80,10 +122,21 @@ class TelegramClientWrapper:
         Returns:
             True если авторизация успешна
         """
-        if await self.is_authorized():
+        if self.session_path is not None and await self.is_authorized():
             return True
         
         phone = input("Введите номер телефона (с кодом страны, например +79001234567): ")
+        
+        # Создаём путь к сессии на основе номера телефона
+        self.session_path = self._create_session_path(phone)
+        self._client = None  # Сбрасываем клиент для создания нового
+        
+        await self.client.connect()
+        
+        # Проверяем, может уже авторизованы с этим номером
+        if await self.client.is_user_authorized():
+            return True
+        
         await self.client.send_code_request(phone)
         
         try:
