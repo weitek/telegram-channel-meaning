@@ -20,6 +20,7 @@ import uvicorn
 
 from core.telegram_client import TelegramClientWrapper
 from core.config import Config
+from typing import List
 
 
 # Глобальные переменные для хранения состояния
@@ -91,6 +92,41 @@ app = FastAPI(
 )
 
 
+def _sort_channels_for_api(channels: List[ChannelInfo], config: Config) -> List[ChannelInfo]:
+    """
+    Применяет сортировку к списку каналов для API согласно настройкам.
+    
+    Args:
+        channels: Список ChannelInfo объектов
+        config: Объект конфигурации
+        
+    Returns:
+        Отсортированный список каналов
+    """
+    sort_type = config.get_channels_sort_type()
+    selected_ids = set(config.get_selected_channels())
+    
+    if sort_type == "none":
+        return channels
+    
+    if sort_type == "selected":
+        selected_channels = [ch for ch in channels if ch.id in selected_ids]
+        other_channels = [ch for ch in channels if ch.id not in selected_ids]
+        return selected_channels + other_channels
+    
+    if sort_type == "type":
+        # Для API мы не знаем тип, поэтому сортируем только по названию
+        return sorted(channels, key=lambda ch: (ch.name or '').lower())
+    
+    if sort_type == "id":
+        return sorted(channels, key=lambda ch: ch.id)
+    
+    if sort_type == "name":
+        return sorted(channels, key=lambda ch: (ch.name or '').lower())
+    
+    return channels
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Проверка работоспособности сервера."""
@@ -127,6 +163,9 @@ async def get_channels():
             ))
         else:
             channels.append(ChannelInfo(id=channel_id))
+    
+    # Применяем сортировку
+    channels = _sort_channels_for_api(channels, config)
     
     return channels
 

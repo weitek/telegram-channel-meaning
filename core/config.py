@@ -4,6 +4,7 @@
 Конфигурация хранится в файле config.json и содержит:
 - selected_channels: список ID выбранных каналов
 - webhook_default_channel: ID канала по умолчанию для вебхука
+- channels_sort_type: вид сортировки списка каналов ("none", "type", "id", "name", "selected")
 """
 
 import json
@@ -17,7 +18,8 @@ class Config:
     
     DEFAULT_CONFIG = {
         "selected_channels": [],
-        "webhook_default_channel": None
+        "webhook_default_channel": None,
+        "channels_sort_type": "none"
     }
     
     def __init__(self, config_path: str = None):
@@ -124,6 +126,28 @@ class Config:
             channel_id: ID канала или None для сброса
         """
         self._config["webhook_default_channel"] = channel_id
+        self._save_config()
+    
+    def get_channels_sort_type(self) -> str:
+        """
+        Возвращает текущий вид сортировки каналов.
+        
+        Returns:
+            Вид сортировки: "none", "type", "id", "name", "selected"
+        """
+        return self._config.get("channels_sort_type", "none")
+    
+    def set_channels_sort_type(self, sort_type: str) -> None:
+        """
+        Устанавливает вид сортировки каналов.
+        
+        Args:
+            sort_type: Вид сортировки ("none", "type", "id", "name", "selected")
+        """
+        valid_types = ["none", "type", "id", "name", "selected"]
+        if sort_type not in valid_types:
+            raise ValueError(f"Неверный тип сортировки. Допустимые: {valid_types}")
+        self._config["channels_sort_type"] = sort_type
         self._save_config()
     
     def get(self, key: str, default=None):

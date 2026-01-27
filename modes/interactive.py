@@ -11,7 +11,7 @@
 import asyncio
 import os
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from core.telegram_client import TelegramClientWrapper
 from core.database import Database
@@ -148,11 +148,12 @@ class InteractiveMode:
                 "Показать все каналы/чаты",
                 "Информация о канале/чате",
                 "Управление выбранными каналами",
+                "Настройка сортировки списка",
                 "Получить сообщения",
                 "Назад"
             ])
             
-            choice = get_choice(4)
+            choice = get_choice(5)
             
             if choice == 0:
                 break
@@ -163,7 +164,99 @@ class InteractiveMode:
             elif choice == 3:
                 await self.manage_selected_channels()
             elif choice == 4:
+                await self.channels_sort_settings_menu()
+            elif choice == 5:
                 await self.fetch_messages_menu()
+    
+    def _sort_dialogs(self, dialogs: List[Dict[str, Any]], selected: List[int]) -> List[Dict[str, Any]]:
+        """
+        Применяет сортировку к списку диалогов согласно настройкам.
+        
+        Args:
+            dialogs: Список диалогов
+            selected: Список ID выбранных каналов
+            
+        Returns:
+            Отсортированный список диалогов
+        """
+        sort_type = self.config.get_channels_sort_type()
+        
+        if sort_type == "none":
+            return dialogs
+        
+        if sort_type == "selected":
+            selected_dialogs = [d for d in dialogs if d['id'] in selected]
+            other_dialogs = [d for d in dialogs if d['id'] not in selected]
+            return selected_dialogs + other_dialogs
+        
+        if sort_type == "type":
+            def get_type_order(d):
+                if d.get('is_channel'):
+                    return 0
+                if d.get('is_group'):
+                    return 1
+                return 2
+            return sorted(dialogs, key=lambda d: (get_type_order(d), d.get('name', '').lower()))
+        
+        if sort_type == "id":
+            return sorted(dialogs, key=lambda d: d['id'])
+        
+        if sort_type == "name":
+            return sorted(dialogs, key=lambda d: d.get('name', '').lower())
+        
+        return dialogs
+    
+    async def channels_sort_settings_menu(self):
+        """Меню настройки сортировки списка каналов."""
+        while True:
+            clear_screen()
+            print_header("Настройка сортировки списка")
+            
+            current_sort = self.config.get_channels_sort_type()
+            sort_names = {
+                "none": "Без сортировки",
+                "type": "По Типу",
+                "id": "По ID",
+                "name": "По Названию",
+                "selected": "По Выбранным"
+            }
+            current_name = sort_names.get(current_sort, "Неизвестно")
+            
+            print(f"\n  Текущая сортировка: {current_name}")
+            
+            print_menu([
+                "Без сортировки",
+                "По Типу",
+                "По ID",
+                "По Названию",
+                "По Выбранным",
+                "Назад"
+            ])
+            
+            choice = get_choice(5)
+            
+            if choice == 0:
+                break
+            elif choice == 1:
+                self.config.set_channels_sort_type("none")
+                print("\nСортировка установлена: Без сортировки")
+                wait_for_enter()
+            elif choice == 2:
+                self.config.set_channels_sort_type("type")
+                print("\nСортировка установлена: По Типу")
+                wait_for_enter()
+            elif choice == 3:
+                self.config.set_channels_sort_type("id")
+                print("\nСортировка установлена: По ID")
+                wait_for_enter()
+            elif choice == 4:
+                self.config.set_channels_sort_type("name")
+                print("\nСортировка установлена: По Названию")
+                wait_for_enter()
+            elif choice == 5:
+                self.config.set_channels_sort_type("selected")
+                print("\nСортировка установлена: По Выбранным")
+                wait_for_enter()
     
     async def show_all_dialogs(self):
         """Показывает все диалоги с постраничной навигацией."""
@@ -178,6 +271,9 @@ class InteractiveMode:
             return
         
         selected = self.config.get_selected_channels()
+        # Применяем сортировку
+        dialogs = self._sort_dialogs(dialogs, selected)
+        
         total_pages = (len(dialogs) + self.dialogs_per_page - 1) // self.dialogs_per_page
         current_page = 1
         
@@ -296,11 +392,31 @@ class InteractiveMode:
             selected = self.config.get_selected_channels()
             
             if selected:
-                print("\nТекущие выбранные каналы:")
-                for i, channel_id in enumerate(selected, 1):
+                # Получаем информацию о всех выбранных каналах
+                selected_dialogs = []
+                for channel_id in selected:
                     info = await self.telegram.get_dialog_info(channel_id)
-                    name = info.get('title', info.get('first_name', 'Неизвестно')) if info else 'Неизвестно'
-                    print(f"  {i}. {channel_id} - {name}")
+                    if info:
+                        dialog_type = info.get('type', '')
+                        is_channel = info.get('is_broadcast', False) or dialog_type == 'Channel'
+                        is_group = dialog_type == 'Chat' or info.get('is_megagroup', False)
+                        is_user = dialog_type == 'User'
+                        
+                        dialog = {
+                            'id': channel_id,
+                            'name': info.get('title', info.get('first_name', 'Неизвестно')),
+                            'is_channel': is_channel,
+                            'is_group': is_group,
+                            'is_user': is_user
+                        }
+                        selected_dialogs.append(dialog)
+                
+                # Применяем сортировку
+                selected_dialogs = self._sort_dialogs(selected_dialogs, selected)
+                
+                print("\nТекущие выбранные каналы:")
+                for i, dialog in enumerate(selected_dialogs, 1):
+                    print(f"  {i}. {dialog['id']} - {dialog['name']}")
             else:
                 print("\n  Нет выбранных каналов")
             
