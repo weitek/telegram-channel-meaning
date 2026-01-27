@@ -92,19 +92,57 @@ app = FastAPI(
 )
 
 
-def _sort_channels_for_api(channels: List[ChannelInfo], config: Config) -> List[ChannelInfo]:
+def _get_type_order_from_dialog_info(info: Optional[dict]) -> int:
+    """
+    Возвращает порядок типа диалога для сортировки.
+
+    Порядок (как в интерактивном режиме):
+    0 - канал (broadcast)
+    1 - группа/чат/мегагруппа
+    2 - личные сообщения (User)
+    99 - неизвестно/нет данных
+    """
+    if not info:
+        return 99
+
+    entity_type = info.get("type")
+
+    if entity_type == "Channel":
+        # Канал (broadcast) выше, мегагруппы/прочее ниже
+        if info.get("is_broadcast"):
+            return 0
+        return 1
+
+    if entity_type == "Chat":
+        return 1
+
+    if entity_type == "User":
+        return 2
+
+    return 99
+
+
+def _sort_channels_for_api(
+    channels: List[ChannelInfo],
+    config: Config,
+    type_orders: dict[int, int],
+) -> List[ChannelInfo]:
     """
     Применяет сортировку к списку каналов для API согласно настройкам.
     
     Args:
         channels: Список ChannelInfo объектов
         config: Объект конфигурации
+        type_orders: Словарь channel_id -> type_order (для сортировки по типу)
         
     Returns:
         Отсортированный список каналов
     """
     sort_type = config.get_channels_sort_type()
     selected_ids = set(config.get_selected_channels())
+
+    def type_order(ch: ChannelInfo) -> int:
+        return type_orders.get(ch.id, 99)
     
     if sort_type == "none":
         return channels
@@ -115,8 +153,23 @@ def _sort_channels_for_api(channels: List[ChannelInfo], config: Config) -> List[
         return selected_channels + other_channels
     
     if sort_type == "type":
-        # Для API мы не знаем тип, поэтому сортируем только по названию
-        return sorted(channels, key=lambda ch: (ch.name or '').lower())
+        return sorted(channels, key=lambda ch: (type_order(ch), (ch.name or '').lower()))
+
+    if sort_type == "type_id":
+        return sorted(channels, key=lambda ch: (type_order(ch), ch.id))
+
+    if sort_type == "type_name":
+        return sorted(channels, key=lambda ch: (type_order(ch), (ch.name or '').lower()))
+
+    if sort_type == "type_selected":
+        return sorted(
+            channels,
+            key=lambda ch: (
+                type_order(ch),
+                0 if ch.id in selected_ids else 1,
+                ch.id,
+            ),
+        )
     
     if sort_type == "id":
         return sorted(channels, key=lambda ch: ch.id)
@@ -153,19 +206,22 @@ async def get_channels():
     channel_ids = config.get_selected_channels()
     
     channels = []
+    type_orders: dict[int, int] = {}
     for channel_id in channel_ids:
         info = await _telegram_client.get_dialog_info(channel_id)
         if info:
+            type_orders[channel_id] = _get_type_order_from_dialog_info(info)
             channels.append(ChannelInfo(
                 id=channel_id,
                 name=info.get('title', info.get('first_name')),
                 username=info.get('username')
             ))
         else:
+            type_orders[channel_id] = 99
             channels.append(ChannelInfo(id=channel_id))
     
     # Применяем сортировку
-    channels = _sort_channels_for_api(channels, config)
+    channels = _sort_channels_for_api(channels, config, type_orders)
     
     return channels
 

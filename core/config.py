@@ -4,7 +4,15 @@
 Конфигурация хранится в файле config.json и содержит:
 - selected_channels: список ID выбранных каналов
 - webhook_default_channel: ID канала по умолчанию для вебхука
-- channels_sort_type: вид сортировки списка каналов ("none", "type", "id", "name", "selected")
+- channels_sort_type: вид сортировки списка каналов
+  - "none" - без сортировки
+  - "type" - по типу (внутри типа по названию)
+  - "id" - по ID
+  - "name" - по названию
+  - "selected" - выбранные в начале списка
+  - "type_id" - по типу + по ID
+  - "type_name" - по типу + по названию
+  - "type_selected" - по типу + по выбранным (внутри подгрупп по ID)
 """
 
 import json
@@ -133,7 +141,9 @@ class Config:
         Возвращает текущий вид сортировки каналов.
         
         Returns:
-            Вид сортировки: "none", "type", "id", "name", "selected"
+            Вид сортировки:
+            - "none", "type", "id", "name", "selected"
+            - "type_id", "type_name", "type_selected"
         """
         return self._config.get("channels_sort_type", "none")
     
@@ -142,9 +152,18 @@ class Config:
         Устанавливает вид сортировки каналов.
         
         Args:
-            sort_type: Вид сортировки ("none", "type", "id", "name", "selected")
+            sort_type: Вид сортировки.
         """
-        valid_types = ["none", "type", "id", "name", "selected"]
+        valid_types = [
+            "none",
+            "type",
+            "id",
+            "name",
+            "selected",
+            "type_id",
+            "type_name",
+            "type_selected",
+        ]
         if sort_type not in valid_types:
             raise ValueError(f"Неверный тип сортировки. Допустимые: {valid_types}")
         self._config["channels_sort_type"] = sort_type

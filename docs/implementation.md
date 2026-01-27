@@ -81,9 +81,21 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 ```json
 {
   "selected_channels": [123456, 789012],
-  "webhook_default_channel": null
+  "webhook_default_channel": null,
+  "channels_sort_type": "none"
 }
 ```
+
+#### Значения channels_sort_type
+
+- `none` — без сортировки
+- `type` — по типу (внутри типа по названию)
+- `id` — по ID
+- `name` — по названию
+- `selected` — выбранные в начале списка
+- `type_id` — по типу + по ID
+- `type_name` — по типу + по названию
+- `type_selected` — по типу + по выбранным (внутри подгрупп по ID)
 
 #### Методы
 
@@ -95,6 +107,8 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `set_selected_channels(ids)` | Установить список каналов |
 | `get_webhook_default_channel()` | Канал по умолчанию для вебхука |
 | `set_webhook_default_channel(id)` | Установить канал для вебхука |
+| `get_channels_sort_type()` | Текущий вид сортировки каналов/чатов |
+| `set_channels_sort_type(type)` | Установить вид сортировки каналов/чатов |
 
 ---
 

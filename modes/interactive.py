@@ -180,24 +180,38 @@ class InteractiveMode:
             Отсортированный список диалогов
         """
         sort_type = self.config.get_channels_sort_type()
+        selected_set = set(selected)
+
+        def get_type_order(d: Dict[str, Any]) -> int:
+            if d.get('is_channel'):
+                return 0
+            if d.get('is_group'):
+                return 1
+            return 2
         
         if sort_type == "none":
             return dialogs
         
         if sort_type == "selected":
-            selected_dialogs = [d for d in dialogs if d['id'] in selected]
-            other_dialogs = [d for d in dialogs if d['id'] not in selected]
+            selected_dialogs = [d for d in dialogs if d['id'] in selected_set]
+            other_dialogs = [d for d in dialogs if d['id'] not in selected_set]
             return selected_dialogs + other_dialogs
         
         if sort_type == "type":
-            def get_type_order(d):
-                if d.get('is_channel'):
-                    return 0
-                if d.get('is_group'):
-                    return 1
-                return 2
             return sorted(dialogs, key=lambda d: (get_type_order(d), d.get('name', '').lower()))
         
+        if sort_type == "type_id":
+            return sorted(dialogs, key=lambda d: (get_type_order(d), d['id']))
+
+        if sort_type == "type_name":
+            return sorted(dialogs, key=lambda d: (get_type_order(d), (d.get('name') or '').lower()))
+
+        if sort_type == "type_selected":
+            return sorted(
+                dialogs,
+                key=lambda d: (get_type_order(d), 0 if d['id'] in selected_set else 1, d['id'])
+            )
+
         if sort_type == "id":
             return sorted(dialogs, key=lambda d: d['id'])
         
@@ -218,7 +232,10 @@ class InteractiveMode:
                 "type": "По Типу",
                 "id": "По ID",
                 "name": "По Названию",
-                "selected": "По Выбранным"
+                "selected": "По Выбранным",
+                "type_id": "По Типу + По ID",
+                "type_name": "По Типу + По Названию",
+                "type_selected": "По Типу + По Выбранным",
             }
             current_name = sort_names.get(current_sort, "Неизвестно")
             
@@ -230,10 +247,13 @@ class InteractiveMode:
                 "По ID",
                 "По Названию",
                 "По Выбранным",
+                "По Типу + По ID",
+                "По Типу + По Названию",
+                "По Типу + По Выбранным",
                 "Назад"
             ])
             
-            choice = get_choice(5)
+            choice = get_choice(8)
             
             if choice == 0:
                 break
@@ -256,6 +276,18 @@ class InteractiveMode:
             elif choice == 5:
                 self.config.set_channels_sort_type("selected")
                 print("\nСортировка установлена: По Выбранным")
+                wait_for_enter()
+            elif choice == 6:
+                self.config.set_channels_sort_type("type_id")
+                print("\nСортировка установлена: По Типу + По ID")
+                wait_for_enter()
+            elif choice == 7:
+                self.config.set_channels_sort_type("type_name")
+                print("\nСортировка установлена: По Типу + По Названию")
+                wait_for_enter()
+            elif choice == 8:
+                self.config.set_channels_sort_type("type_selected")
+                print("\nСортировка установлена: По Типу + По Выбранным")
                 wait_for_enter()
     
     async def show_all_dialogs(self):
