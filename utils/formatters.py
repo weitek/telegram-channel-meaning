@@ -79,6 +79,7 @@ def format_messages(messages: List[Dict[str, Any]],
 
 def _format_single_message(msg: Dict[str, Any], compact: bool = False) -> str:
     """Форматирует одно сообщение."""
+
     # Дата
     date = msg.get('date')
     if isinstance(date, datetime):
@@ -91,11 +92,25 @@ def _format_single_message(msg: Dict[str, Any], compact: bool = False) -> str:
     # Отправитель
     sender = msg.get('sender')
     if sender:
-        sender_name = sender.get('first_name', '')
-        if sender.get('last_name'):
-            sender_name += f" {sender['last_name']}"
-        if sender.get('username'):
-            sender_name += f" (@{sender['username']})"
+        # Нормализуем поля: Telegram иногда отдаёт None вместо строк.
+        first_name = sender.get("first_name")
+        last_name = sender.get("last_name")
+        username = sender.get("username")
+
+        first_name = first_name if isinstance(first_name, str) else (str(first_name) if first_name is not None else "")
+        last_name = last_name if isinstance(last_name, str) else (str(last_name) if last_name is not None else "")
+        username = username if isinstance(username, str) else (str(username) if username is not None else "")
+
+        sender_name = (first_name + (f" {last_name}" if last_name else "")).strip()
+
+        if username:
+            if sender_name:
+                sender_name += f" (@{username})"
+            else:
+                sender_name = f"@{username}"
+
+        if not sender_name:
+            sender_name = "Неизвестно"
     else:
         sender_name = "Неизвестно"
     

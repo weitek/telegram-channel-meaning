@@ -35,6 +35,7 @@ env/
 
 # Project specific
 data/
+logs/
 .env
 
 # OS
