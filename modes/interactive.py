@@ -174,11 +174,12 @@ class InteractiveMode:
                 "Информация о канале/чате",
                 "Управление выбранными каналами",
                 "Настройка сортировки списка",
+                "Настройка сортировки вывода сообщений",
                 "Получить сообщения",
                 "Назад"
             ])
             
-            choice = get_choice(5)
+            choice = get_choice(6)
             
             if choice == 0:
                 break
@@ -191,7 +192,46 @@ class InteractiveMode:
             elif choice == 4:
                 await self.channels_sort_settings_menu()
             elif choice == 5:
+                await self.messages_sort_settings_menu()
+            elif choice == 6:
                 await self.fetch_messages_menu()
+
+    async def messages_sort_settings_menu(self):
+        """Меню настройки сортировки вывода сообщений."""
+        while True:
+            clear_screen()
+            print_header("Сортировка вывода сообщений")
+
+            current = self.config.get_messages_sort_order()
+            names = {
+                "telegram": "Как сформировались (telegram)",
+                "id_asc": "По telegram_id (возрастание)",
+                "id_desc": "По telegram_id (убывание)",
+            }
+            print(f"\n  Текущая сортировка: {names.get(current, current)}")
+
+            print_menu([
+                "Как сформировались (telegram)",
+                "По telegram_id (возрастание)",
+                "По telegram_id (убывание)",
+                "Назад",
+            ])
+
+            choice = get_choice(3)
+            if choice == 0:
+                break
+            elif choice == 1:
+                self.config.set_messages_sort_order("telegram")
+                print("\nСортировка вывода установлена: telegram")
+                wait_for_enter()
+            elif choice == 2:
+                self.config.set_messages_sort_order("id_asc")
+                print("\nСортировка вывода установлена: id_asc")
+                wait_for_enter()
+            elif choice == 3:
+                self.config.set_messages_sort_order("id_desc")
+                print("\nСортировка вывода установлена: id_desc")
+                wait_for_enter()
     
     def _sort_dialogs(self, dialogs: List[Dict[str, Any]], selected: List[int]) -> List[Dict[str, Any]]:
         """

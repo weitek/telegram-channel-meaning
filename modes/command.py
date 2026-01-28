@@ -20,6 +20,7 @@ from core.database import Database
 from core.config import Config
 from utils.message_chains import find_chain_roots, build_chains, separate_standalone_and_chains
 from utils.formatters import format_messages, format_message_json, format_reactions_json
+from utils.message_sorting import group_and_sort_messages
 
 
 async def run_command_mode(api_id: int, api_hash: str, args):
@@ -86,6 +87,7 @@ class CommandHandler:
         
         # Получаем сообщения
         all_messages = []
+        channel_titles: Dict[int, str] = {}
         
         for channel_id in channel_ids:
             messages = await self.telegram.fetch_messages_by_date(
@@ -124,12 +126,13 @@ class CommandHandler:
             
             info = await self.telegram.get_dialog_info(channel_id)
             name = info.get('title', 'Неизвестно') if info else 'Неизвестно'
+            channel_titles[int(channel_id)] = name
             print(f"  {name}: {len(messages)} сообщений")
         
         print(f"\nВсего: {len(all_messages)} сообщений")
         
         # Формируем вывод
-        output = self._format_output(all_messages)
+        output = self._format_output(all_messages, channel_titles=channel_titles)
         
         # Выводим или отправляем
         if self.args.send_url:
@@ -212,33 +215,101 @@ class CommandHandler:
         
         return date_from, date_to
     
-    def _format_output(self, messages: List[Dict[str, Any]]) -> str:
+    def _format_output(
+        self,
+        messages: List[Dict[str, Any]],
+        channel_titles: Optional[Dict[int, str]] = None,
+    ) -> str:
         """Форматирует вывод в зависимости от --output."""
         output_format = self.args.output
+        sort_order = self._get_messages_sort_order()
+        channel_titles = channel_titles or {}
+        grouped = group_and_sort_messages(messages, sort_order=sort_order)
+        is_multi_channel = len(grouped) > 1
         
         if output_format == 'text':
-            return format_messages(messages, include_chains=True)
+            if not is_multi_channel:
+                # Один канал (или пусто) — без блока по каналу.
+                return format_messages(
+                    messages,
+                    include_chains=True,
+                    standalone_sort_order=sort_order,
+                )
+
+            blocks: List[str] = []
+            for channel_id, ch_messages in grouped:
+                title = channel_titles.get(channel_id, "Неизвестно")
+                blocks.append("=" * 60)
+                blocks.append(f"КАНАЛ: {title} (ID: {channel_id})")
+                blocks.append("=" * 60)
+                blocks.append(
+                    format_messages(
+                        ch_messages,
+                        include_chains=True,
+                        standalone_sort_order=sort_order,
+                    )
+                )
+                blocks.append("")
+            return "\n".join(blocks).rstrip()
         
         elif output_format == 'json':
-            # Разделяем на одиночные и цепочки
-            standalone, chains = separate_standalone_and_chains(messages)
-            data = {
-                'standalone_messages': [format_message_json(m) for m in standalone],
-                'chains': []
-            }
-            for chain in chains:
-                chain_data = {
-                    'root': format_message_json(chain[0]),
-                    'replies': [format_message_json(m) for m in chain[1:]]
+            if not is_multi_channel:
+                # Совместимость: прежняя структура при одном канале.
+                standalone, chains = separate_standalone_and_chains(messages)
+                if standalone and sort_order in ("id_asc", "id_desc"):
+                    reverse = sort_order == "id_desc"
+                    standalone.sort(key=lambda m: int(m.get("telegram_id", -1)), reverse=reverse)
+                data = {
+                    'standalone_messages': [format_message_json(m) for m in standalone],
+                    'chains': []
                 }
-                data['chains'].append(chain_data)
+                for chain in chains:
+                    chain_data = {
+                        'root': format_message_json(chain[0]),
+                        'replies': [format_message_json(m) for m in chain[1:]]
+                    }
+                    data['chains'].append(chain_data)
+                return json.dumps(data, ensure_ascii=False, indent=2, default=str)
+
+            # Мультиканальный вывод: блоки по channel_id
+            data = {"channels": []}
+            for channel_id, ch_messages in grouped:
+                standalone, chains = separate_standalone_and_chains(ch_messages)
+                if standalone and sort_order in ("id_asc", "id_desc"):
+                    reverse = sort_order == "id_desc"
+                    standalone.sort(key=lambda m: int(m.get("telegram_id", -1)), reverse=reverse)
+
+                ch_data = {
+                    "channel_id": channel_id,
+                    "standalone_messages": [format_message_json(m) for m in standalone],
+                    "chains": [],
+                }
+                for chain in chains:
+                    ch_data["chains"].append(
+                        {
+                            "root": format_message_json(chain[0]),
+                            "replies": [format_message_json(m) for m in chain[1:]],
+                        }
+                    )
+                data["channels"].append(ch_data)
             return json.dumps(data, ensure_ascii=False, indent=2, default=str)
         
         elif output_format == 'json-no-chains':
-            # Все сообщения в плоском списке
-            data = {
-                'messages': [format_message_json(m) for m in messages]
-            }
+            if not is_multi_channel:
+                # Совместимость: прежняя структура при одном канале.
+                data = {
+                    'messages': [format_message_json(m) for m in grouped[0][1]] if grouped else []
+                }
+                return json.dumps(data, ensure_ascii=False, indent=2, default=str)
+
+            data = {"channels": []}
+            for channel_id, ch_messages in grouped:
+                data["channels"].append(
+                    {
+                        "channel_id": channel_id,
+                        "messages": [format_message_json(m) for m in ch_messages],
+                    }
+                )
             return json.dumps(data, ensure_ascii=False, indent=2, default=str)
         
         elif output_format == 'json-reactions':
@@ -252,6 +323,17 @@ class CommandHandler:
             return json.dumps(data, ensure_ascii=False, indent=2, default=str)
         
         return ""
+
+    def _get_messages_sort_order(self) -> str:
+        """
+        Определяет порядок сортировки сообщений:
+        - CLI `--messages-sort` имеет приоритет, если задан
+        - иначе используется значение из конфига
+        """
+        order = getattr(self.args, "messages_sort", None)
+        if order:
+            return order
+        return self.config.get_messages_sort_order()
     
     async def _send_to_url(self, data: str):
         """Отправляет данные по URL."""

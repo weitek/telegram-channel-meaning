@@ -104,6 +104,9 @@ python main.py --fetch --period-offset 86400 0
 # Получить из конкретного канала
 python main.py --fetch-channel -1001234567890 --period-offset 3600 0
 
+# Сортировка вывода сообщений (переопределяет настройку в config.json)
+python main.py --fetch --period-offset 86400 0 --messages-sort id_asc
+
 # С отслеживанием реакций
 python main.py --fetch --track-reactions --output json-reactions
 
@@ -176,10 +179,44 @@ telegram-channel-meaning/
 | `--track-reactions` | Отслеживать изменения лайков |
 | `--fetch-chains` | Получить начала цепочек |
 | `--output FORMAT` | Формат: text, json, json-no-chains, json-reactions |
+| `--messages-sort ORDER` | Сортировка сообщений в выводе: `telegram`, `id_asc`, `id_desc` (CLI имеет приоритет над конфигом) |
 | `--send-url URL` | Отправить результат по URL |
 | `--clear` | Очистить сообщения |
 | `--clear-channel ID` | Очистить для канала |
 | `--clear-period FROM TO` | Очистить за период |
+
+## Примечания по структуре вывода (несколько каналов)
+
+Если в результате есть сообщения **из нескольких каналов**, вывод группируется по `channel_id`:
+
+- **`--output text`**: печатает отдельные блоки по каналам.
+- **`--output json`**: возвращает объект вида:
+
+```json
+{
+  "channels": [
+    {
+      "channel_id": 123,
+      "standalone_messages": [],
+      "chains": [
+        { "root": {}, "replies": [] }
+      ]
+    }
+  ]
+}
+```
+
+- **`--output json-no-chains`**: возвращает объект вида:
+
+```json
+{
+  "channels": [
+    { "channel_id": 123, "messages": [] }
+  ]
+}
+```
+
+При выводе сообщений **только одного канала** структура `json/json-no-chains` остаётся прежней (без обёртки `channels`).
 
 ## Лицензия
 

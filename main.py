@@ -134,6 +134,12 @@ def create_parser():
         help='Формат вывода (по умолчанию: text)'
     )
     output_group.add_argument(
+        '--messages-sort',
+        choices=['telegram', 'id_asc', 'id_desc'],
+        default=None,
+        help='Сортировка сообщений в выводе (переопределяет конфиг): telegram|id_asc|id_desc'
+    )
+    output_group.add_argument(
         '--send-url',
         metavar='URL',
         help='Отправить результат по указанному URL'

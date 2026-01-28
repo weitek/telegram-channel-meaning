@@ -14,13 +14,18 @@ from .message_chains import separate_standalone_and_chains, get_chain_statistics
 
 
 def format_messages(messages: List[Dict[str, Any]], 
-                   include_chains: bool = True) -> str:
+                   include_chains: bool = True,
+                   standalone_sort_order: Optional[str] = None) -> str:
     """
     Форматирует сообщения для текстового вывода.
     
     Args:
         messages: Список сообщений
         include_chains: Группировать ли сообщения по цепочкам
+        standalone_sort_order: Порядок сортировки одиночных сообщений:
+            - None/"telegram" (по умолчанию): как сформировались в логике цепочек
+            - "id_asc": по telegram_id по возрастанию
+            - "id_desc": по telegram_id по убыванию
         
     Returns:
         Отформатированная строка
@@ -32,6 +37,12 @@ def format_messages(messages: List[Dict[str, Any]],
     
     if include_chains:
         standalone, chains = separate_standalone_and_chains(messages)
+
+        # При необходимости переопределяем порядок одиночных сообщений,
+        # при этом цепочки (корни/ответы) оставляем с сортировкой по дате как сейчас.
+        if standalone and standalone_sort_order in ("id_asc", "id_desc"):
+            reverse = standalone_sort_order == "id_desc"
+            standalone.sort(key=lambda m: int(m.get("telegram_id", -1)), reverse=reverse)
         
         # Выводим одиночные сообщения
         if standalone:

@@ -13,6 +13,10 @@
   - "type_id" - по типу + по ID
   - "type_name" - по типу + по названию
   - "type_selected" - по типу + по выбранным (внутри подгрупп по ID)
+- messages_sort_order: порядок сортировки сообщений в выводе (командный режим)
+  - "telegram" - как пришли/сформировались (по умолчанию)
+  - "id_asc" - по telegram_id по возрастанию
+  - "id_desc" - по telegram_id по убыванию
 """
 
 import json
@@ -24,10 +28,13 @@ from typing import List, Optional
 class Config:
     """Класс для работы с конфигурацией приложения."""
     
+    VALID_MESSAGES_SORT_ORDERS = ["telegram", "id_asc", "id_desc"]
+
     DEFAULT_CONFIG = {
         "selected_channels": [],
         "webhook_default_channel": None,
-        "channels_sort_type": "none"
+        "channels_sort_type": "none",
+        "messages_sort_order": "telegram",
     }
     
     def __init__(self, config_path: str = None):
@@ -167,6 +174,32 @@ class Config:
         if sort_type not in valid_types:
             raise ValueError(f"Неверный тип сортировки. Допустимые: {valid_types}")
         self._config["channels_sort_type"] = sort_type
+        self._save_config()
+
+    def get_messages_sort_order(self) -> str:
+        """
+        Возвращает порядок сортировки сообщений в выводе.
+
+        Returns:
+            "telegram", "id_asc" или "id_desc"
+        """
+        order = self._config.get("messages_sort_order", "telegram")
+        if order not in self.VALID_MESSAGES_SORT_ORDERS:
+            return "telegram"
+        return order
+
+    def set_messages_sort_order(self, order: str) -> None:
+        """
+        Устанавливает порядок сортировки сообщений в выводе.
+
+        Args:
+            order: "telegram", "id_asc" или "id_desc"
+        """
+        if order not in self.VALID_MESSAGES_SORT_ORDERS:
+            raise ValueError(
+                f"Неверный порядок сортировки сообщений. Допустимые: {self.VALID_MESSAGES_SORT_ORDERS}"
+            )
+        self._config["messages_sort_order"] = order
         self._save_config()
     
     def get(self, key: str, default=None):
