@@ -111,6 +111,7 @@ class CommandHandler:
         # Получаем сообщения
         all_messages = []
         channel_titles: Dict[int, str] = {}
+        saved_message_ids: List[int] = []
         
         for channel_id in channel_ids:
             messages = await self.telegram.fetch_messages_by_date(
@@ -138,6 +139,7 @@ class CommandHandler:
                     reactions_count=msg['reactions_count'],
                     raw_json=msg['raw_json']
                 )
+                saved_message_ids.append(db_msg_id)
                 
                 # Сохраняем реакции если нужно
                 if self.args.track_reactions:
@@ -161,14 +163,24 @@ class CommandHandler:
         # Формируем вывод
         output = self._format_output(all_messages, channel_titles=channel_titles)
         
+        delete_after = getattr(self.args, 'delete_after', False)
+        
         # Выводим или отправляем
         if self.args.send_url:
-            await self._send_to_url(output)
+            success = await self._send_to_url(output)
+            if success and delete_after and saved_message_ids:
+                count = self.database.delete_message_ids(saved_message_ids)
+                print(f"Удалено из БД: {count} сообщений")
             return None
         else:
             if self.stdout_only_mode:
+                if delete_after and saved_message_ids:
+                    self.database.delete_message_ids(saved_message_ids)
                 return output
             print("\n" + output)
+            if delete_after and saved_message_ids:
+                count = self.database.delete_message_ids(saved_message_ids)
+                print(f"Удалено из БД: {count} сообщений")
             return None
     
     async def handle_clear(self):
@@ -366,8 +378,8 @@ class CommandHandler:
             return order
         return self.config.get_messages_sort_order()
     
-    async def _send_to_url(self, data: str):
-        """Отправляет данные по URL."""
+    async def _send_to_url(self, data: str) -> bool:
+        """Отправляет данные по URL. Возвращает True при успехе (2xx)."""
         url = self.args.send_url
         
         print(f"\nОтправка данных на {url}...")
@@ -392,12 +404,16 @@ class CommandHandler:
                 print(f"Статус: {response.status_code}")
                 if response.status_code >= 400:
                     print(f"Ответ: {response.text[:500]}")
-                else:
-                    print("Данные успешно отправлены")
+                    return False
+                print("Данные успешно отправлены")
+                return True
         
         except httpx.TimeoutException:
             print("Ошибка: Таймаут соединения")
+            return False
         except httpx.RequestError as e:
             print(f"Ошибка запроса: {e}")
+            return False
         except Exception as e:
             print(f"Ошибка: {e}")
+            return False

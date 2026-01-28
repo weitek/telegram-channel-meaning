@@ -129,6 +129,11 @@ def create_parser():
         action='store_true',
         help='Получить начала цепочек сообщений'
     )
+    fetch_group.add_argument(
+        '--delete-after',
+        action='store_true',
+        help='После обработки (отправка на URL или вывод) удалять полученные сообщения из БД'
+    )
     
     # Вывод
     output_group = parser.add_argument_group('Формат вывода')

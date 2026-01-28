@@ -343,6 +343,30 @@ class Database:
             conn.commit()
             return cursor.rowcount
     
+    def delete_message_ids(self, message_ids: List[int]) -> int:
+        """
+        Удаляет сообщения по списку ID.
+        Сначала удаляет записи из reactions_history, затем из messages.
+        
+        Returns:
+            Количество удалённых сообщений
+        """
+        if not message_ids:
+            return 0
+        placeholders = ','.join('?' * len(message_ids))
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"DELETE FROM reactions_history WHERE message_id IN ({placeholders})",
+                message_ids
+            )
+            cursor.execute(
+                f"DELETE FROM messages WHERE id IN ({placeholders})",
+                message_ids
+            )
+            conn.commit()
+            return cursor.rowcount
+    
     # ==================== Методы для реакций ====================
     
     def save_reactions_snapshot(self, message_id: int, 
