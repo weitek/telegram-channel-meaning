@@ -22,8 +22,12 @@ except ImportError:
     pass
 
 
-def check_environment():
-    """Проверяет наличие необходимых переменных окружения."""
+def check_environment(silent: bool = False):
+    """Проверяет наличие необходимых переменных окружения.
+
+    Args:
+        silent: Если True — не печатать подсказки, просто завершиться с кодом 1.
+    """
     api_id = os.environ.get('TELEGRAM_API_ID')
     api_hash = os.environ.get('TELEGRAM_API_HASH')
     
@@ -34,21 +38,22 @@ def check_environment():
         missing.append('TELEGRAM_API_HASH')
     
     if missing:
-        print("Ошибка: Отсутствуют переменные окружения:")
-        for var in missing:
-            print(f"  - {var}")
-        print("\nУстановите их одним из способов:")
-        print("\n1. Создайте файл .env (скопируйте .env.example):")
-        print("   TELEGRAM_API_ID=your_api_id")
-        print("   TELEGRAM_API_HASH=your_api_hash")
-        print("\n2. Или установите переменные окружения:")
-        print("   Windows (PowerShell):")
-        print('     $env:TELEGRAM_API_ID="your_api_id"')
-        print('     $env:TELEGRAM_API_HASH="your_api_hash"')
-        print("   Linux/macOS:")
-        print('     export TELEGRAM_API_ID="your_api_id"')
-        print('     export TELEGRAM_API_HASH="your_api_hash"')
-        print("\nПолучить API credentials можно на https://my.telegram.org/apps")
+        if not silent:
+            print("Ошибка: Отсутствуют переменные окружения:")
+            for var in missing:
+                print(f"  - {var}")
+            print("\nУстановите их одним из способов:")
+            print("\n1. Создайте файл .env (скопируйте .env.example):")
+            print("   TELEGRAM_API_ID=your_api_id")
+            print("   TELEGRAM_API_HASH=your_api_hash")
+            print("\n2. Или установите переменные окружения:")
+            print("   Windows (PowerShell):")
+            print('     $env:TELEGRAM_API_ID="your_api_id"')
+            print('     $env:TELEGRAM_API_HASH="your_api_hash"')
+            print("   Linux/macOS:")
+            print('     export TELEGRAM_API_ID="your_api_id"')
+            print('     export TELEGRAM_API_HASH="your_api_hash"')
+            print("\nПолучить API credentials можно на https://my.telegram.org/apps")
         sys.exit(1)
     
     return int(api_id), api_hash
@@ -175,7 +180,8 @@ def main():
     args = parser.parse_args()
     
     # Проверяем переменные окружения
-    api_id, api_hash = check_environment()
+    stdout_only_mode = (args.fetch or args.fetch_channel) and not args.send_url
+    api_id, api_hash = check_environment(silent=stdout_only_mode)
     
     # Определяем режим работы
     if args.webhook:

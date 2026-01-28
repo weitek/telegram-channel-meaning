@@ -9,6 +9,8 @@
 """
 
 import asyncio
+import contextlib
+import io
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -32,22 +34,42 @@ async def run_command_mode(api_id: int, api_hash: str, args):
         api_hash: Telegram API Hash
         args: Аргументы командной строки
     """
-    handler = CommandHandler(api_id, api_hash, args)
+    stdout_only_mode = (args.fetch or args.fetch_channel) and not args.send_url
+
+    # В stdout-only режиме подавляем весь служебный вывод/ошибки из внутренних модулей
+    # и печатаем только сформированный результат (output) и только если есть сообщения.
+    if stdout_only_mode:
+        handler = CommandHandler(api_id, api_hash, args, stdout_only_mode=True)
+        buf_out = io.StringIO()
+        buf_err = io.StringIO()
+        output: str = ""
+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+            try:
+                output = (await handler.run()) or ""
+            except Exception:
+                # Никаких трейсбеков/ошибок в stdout-only режиме
+                output = ""
+        if output:
+            print(output, end="")
+        return
+
+    handler = CommandHandler(api_id, api_hash, args, stdout_only_mode=False)
     await handler.run()
 
 
 class CommandHandler:
     """Обработчик командного режима."""
     
-    def __init__(self, api_id: int, api_hash: str, args):
+    def __init__(self, api_id: int, api_hash: str, args, stdout_only_mode: bool = False):
         self.api_id = api_id
         self.api_hash = api_hash
         self.args = args
+        self.stdout_only_mode = stdout_only_mode
         self.database = Database()
         self.config = Config()
         self.telegram: Optional[TelegramClientWrapper] = None
     
-    async def run(self):
+    async def run(self) -> Optional[str]:
         """Выполняет команду."""
         async with TelegramClientWrapper(self.api_id, self.api_hash) as tg:
             self.telegram = tg
@@ -56,15 +78,16 @@ class CommandHandler:
             if not await tg.is_authorized():
                 print("Требуется авторизация. Запустите в интерактивном режиме:")
                 print("  python main.py --interactive")
-                return
+                return None
             
             # Выполняем команду
             if self.args.clear:
                 await self.handle_clear()
             elif self.args.fetch or self.args.fetch_channel:
-                await self.handle_fetch()
+                return await self.handle_fetch()
+        return None
     
-    async def handle_fetch(self):
+    async def handle_fetch(self) -> Optional[str]:
         """Обрабатывает команду получения сообщений."""
         # Определяем каналы
         if self.args.fetch_channel:
@@ -75,7 +98,7 @@ class CommandHandler:
                 print("Ошибка: Нет выбранных каналов.")
                 print("Укажите канал через --fetch-channel ID")
                 print("или выберите каналы в интерактивном режиме.")
-                return
+                return "" if self.stdout_only_mode else None
         
         # Определяем период
         date_from, date_to = self._parse_period()
@@ -130,6 +153,10 @@ class CommandHandler:
             print(f"  {name}: {len(messages)} сообщений")
         
         print(f"\nВсего: {len(all_messages)} сообщений")
+
+        # В stdout-only режиме не печатаем ничего, если сообщений нет.
+        if self.stdout_only_mode and not all_messages:
+            return ""
         
         # Формируем вывод
         output = self._format_output(all_messages, channel_titles=channel_titles)
@@ -137,8 +164,12 @@ class CommandHandler:
         # Выводим или отправляем
         if self.args.send_url:
             await self._send_to_url(output)
+            return None
         else:
+            if self.stdout_only_mode:
+                return output
             print("\n" + output)
+            return None
     
     async def handle_clear(self):
         """Обрабатывает команду очистки."""
