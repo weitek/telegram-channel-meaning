@@ -7,10 +7,17 @@
 - Специальный формат для реакций
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from .message_chains import separate_standalone_and_chains, get_chain_statistics
+from .timezone import get_timezone
+
+
+def _utc_to_display_dt(naive_utc: datetime) -> datetime:
+    """Переводит наивный UTC datetime в зону отображения (TIMEZONE)."""
+    utc_dt = naive_utc.replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone(get_timezone())
 
 
 def format_messages(messages: List[Dict[str, Any]], 
@@ -91,10 +98,11 @@ def format_messages(messages: List[Dict[str, Any]],
 def _format_single_message(msg: Dict[str, Any], compact: bool = False) -> str:
     """Форматирует одно сообщение."""
 
-    # Дата
+    # Дата (входящая дата — наивный UTC, выводим в зоне из TIMEZONE)
     date = msg.get('date')
     if isinstance(date, datetime):
-        date_str = date.strftime('%Y-%m-%d %H:%M')
+        display_dt = _utc_to_display_dt(date)
+        date_str = display_dt.strftime('%Y-%m-%d %H:%M')
     elif isinstance(date, str):
         date_str = date[:16] if len(date) > 16 else date
     else:
@@ -164,10 +172,11 @@ def format_message_json(msg: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Словарь для JSON сериализации
     """
-    # Обрабатываем дату
+    # Обрабатываем дату (входящая — наивный UTC, выводим в зоне из TIMEZONE)
     date = msg.get('date')
     if isinstance(date, datetime):
-        date_str = date.isoformat()
+        display_dt = _utc_to_display_dt(date)
+        date_str = display_dt.replace(tzinfo=None).isoformat() if display_dt.tzinfo else display_dt.isoformat()
     else:
         date_str = str(date) if date else None
     

@@ -12,7 +12,7 @@ import asyncio
 import contextlib
 import io
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 import httpx
@@ -23,6 +23,7 @@ from core.config import Config
 from utils.message_chains import find_chain_roots, build_chains, separate_standalone_and_chains
 from utils.formatters import format_messages, format_message_json, format_reactions_json
 from utils.message_sorting import group_and_sort_messages
+from utils.timezone import get_timezone
 
 
 async def run_command_mode(api_id: int, api_hash: str, args):
@@ -238,21 +239,36 @@ class CommandHandler:
         elif self.args.period_dates:
             try:
                 date_from_str, date_to_str = self.args.period_dates
-                
-                # Поддерживаем разные форматы
+                tz = get_timezone()
+
+                # Парсим в зоне TIMEZONE: только дата — начало/конец дня, дата+время — указанный момент
+                date_from_parsed = None
                 for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
                     try:
-                        date_from = datetime.strptime(date_from_str, fmt)
+                        date_from_parsed = datetime.strptime(date_from_str, fmt)
                         break
                     except ValueError:
                         continue
-                
+                if date_from_parsed is None:
+                    raise ValueError(f"Не удалось распознать дату: {date_from_str}")
+
+                date_to_parsed = None
                 for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
                     try:
-                        date_to = datetime.strptime(date_to_str, fmt)
+                        date_to_parsed = datetime.strptime(date_to_str, fmt)
                         break
                     except ValueError:
                         continue
+                if date_to_parsed is None:
+                    raise ValueError(f"Не удалось распознать дату: {date_to_str}")
+
+                if len(date_from_str.strip()) <= 10:
+                    date_from_parsed = date_from_parsed.replace(hour=0, minute=0, second=0, microsecond=0)
+                if len(date_to_str.strip()) <= 10:
+                    date_to_parsed = date_to_parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+                date_from = date_from_parsed.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
+                date_to = date_to_parsed.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
             except Exception as e:
                 print(f"Ошибка парсинга дат: {e}")
         

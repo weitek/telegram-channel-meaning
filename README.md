@@ -65,6 +65,10 @@ TELEGRAM_API_HASH=your_api_hash_here
 DIALOGS_PER_PAGE=20
 # Ширина столбца "Название" в таблице списка каналов/чатов
 DIALOGS_NAME_COL_WIDTH=30
+
+# (опционально) Временная зона для вывода дат и для --period-dates (IANA, например Europe/Moscow).
+# Если не задано — используется UTC (GMT+0).
+TIMEZONE=UTC
 ```
 
 ### Способ 2: Переменные окружения системы
@@ -148,7 +152,8 @@ telegram-channel-meaning/
 │   └── webhook.py             # FastAPI сервер
 ├── utils/
 │   ├── message_chains.py      # Логика цепочек сообщений
-│   └── formatters.py          # Форматирование вывода
+│   ├── formatters.py          # Форматирование вывода
+│   └── timezone.py             # Временная зона из .env (TIMEZONE)
 └── docs/                      # Документация
     ├── architecture.md        # Архитектура приложения
     ├── structure.md           # Структура проекта
@@ -175,7 +180,7 @@ telegram-channel-meaning/
 | `--fetch`, `-f` | Получить сообщения |
 | `--fetch-channel ID` | Получить из конкретного канала |
 | `--period-offset START END` | Период смещениями в секундах |
-| `--period-dates FROM TO` | Период датами (ISO формат) |
+| `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
 | `--fetch-chains` | Получить начала цепочек |
 | `--output FORMAT` | Формат: text, json, json-no-chains, json-reactions |

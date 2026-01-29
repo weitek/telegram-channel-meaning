@@ -154,7 +154,7 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `--fetch` | Получить сообщения из выбранных каналов |
 | `--fetch-channel ID` | Получить из конкретного канала |
 | `--period-offset START END` | Период смещениями в секундах |
-| `--period-dates FROM TO` | Период датами (ISO формат) |
+| `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
 | `--fetch-chains` | Получить начала цепочек |
 | `--output FORMAT` | Формат: text, json, json-no-chains, json-reactions |
@@ -242,6 +242,18 @@ curl -X POST http://localhost:8080/send \
 - **json** - JSON с разделением на standalone и chains
 - **json-no-chains** - плоский JSON список сообщений
 - **json-reactions** - JSON только с изменениями реакций
+
+Даты в выводе (текст и JSON) переводятся в временную зону из переменной окружения **TIMEZONE** (по умолчанию UTC).
+
+### 9. Timezone (utils/timezone.py)
+
+Централизованное получение временной зоны из `.env`.
+
+| Функция | Описание |
+|---------|----------|
+| `get_timezone()` | Возвращает `ZoneInfo` для зоны из переменной `TIMEZONE`; при пустом или невалидном значении — UTC |
+
+Используется при форматировании дат сообщений и при интерпретации диапазона `--period-dates` (даты считаются в указанной зоне, затем переводятся в UTC для API и БД).
 
 ---
 
