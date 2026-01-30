@@ -114,9 +114,18 @@ class CommandHandler:
         channel_titles: Dict[int, str] = {}
         saved_message_ids: List[int] = []
         
+        limit = (
+            self.args.limit
+            if getattr(self.args, "limit", None) is not None
+            else self.config.get_fetch_messages_limit()
+        )
         for channel_id in channel_ids:
             messages = await self.telegram.fetch_messages_by_date(
-                channel_id, date_from, date_to, limit=1000
+                channel_id,
+                date_from,
+                date_to,
+                limit=limit,
+                pause_seconds=self.config.get_fetch_messages_pause_seconds(),
             )
             
             # Сохраняем в базу

@@ -8,6 +8,7 @@
 - Отправки сообщений
 """
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -283,16 +284,22 @@ class TelegramClientWrapper:
     async def fetch_messages_by_date(self, channel_id: int,
                                      date_from: datetime = None,
                                      date_to: datetime = None,
-                                     limit: int = 100) -> List[Dict[str, Any]]:
+                                     limit: int = 100,
+                                     pause_seconds: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Получает сообщения из канала по датам.
-        
+
+        При pause_seconds is None возвращает не более limit сообщений (один запрос).
+        При pause_seconds >= 0 запрашивает порции по limit, между порциями — пауза,
+        пока не будут получены все сообщения в диапазоне [date_from, date_to].
+
         Args:
             channel_id: ID канала
             date_from: Начальная дата
             date_to: Конечная дата
-            limit: Максимальное количество сообщений
-            
+            limit: Максимальное количество сообщений в одной порции
+            pause_seconds: Пауза между порциями в секундах (None — один батч)
+
         Returns:
             Список сообщений
         """
@@ -301,23 +308,54 @@ class TelegramClientWrapper:
         except Exception as e:
             print(f"Ошибка получения канала {channel_id}: {e}")
             return []
-        
+
+        if pause_seconds is None:
+            return await self._fetch_messages_batch(
+                entity, channel_id, date_from, date_to, limit, max_id=None
+            )
+
+        all_messages: List[Dict[str, Any]] = []
+        offset_date: Optional[datetime] = date_to
+        max_id: Optional[int] = None
+
+        while True:
+            batch = await self._fetch_messages_batch(
+                entity, channel_id, date_from, offset_date, limit, max_id=max_id
+            )
+            all_messages.extend(batch)
+            if len(batch) < limit:
+                break
+            if pause_seconds > 0:
+                await asyncio.sleep(pause_seconds)
+            last = batch[-1]
+            offset_date = last.get("date")
+            tid = last.get("telegram_id")
+            max_id = (tid - 1) if tid is not None else None
+
+        return all_messages
+
+    async def _fetch_messages_batch(
+        self,
+        entity,
+        channel_id: int,
+        date_from: Optional[datetime],
+        date_to: Optional[datetime],
+        limit: int,
+        max_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Запрашивает одну порцию сообщений (offset_date = date_to, max_id)."""
         messages = []
-        
-        async for message in self.client.iter_messages(
-            entity,
-            limit=limit,
-            offset_date=date_to,
-            reverse=False
-        ):
-            if date_from and message.date.replace(tzinfo=None) < date_from:
+        kwargs = {"limit": limit, "offset_date": date_to, "reverse": False}
+        if max_id is not None:
+            kwargs["max_id"] = max_id
+        async for message in self.client.iter_messages(entity, **kwargs):
+            msg_date = message.date.replace(tzinfo=None) if message.date else None
+            if date_from and msg_date is not None and msg_date < date_from:
                 continue
-            if date_to and message.date.replace(tzinfo=None) > date_to:
+            if date_to and msg_date is not None and msg_date > date_to:
                 continue
-            
             msg_dict = self._message_to_dict(message, channel_id)
             messages.append(msg_dict)
-        
         return messages
     
     def _message_to_dict(self, message: Message, channel_id: int) -> Dict[str, Any]:

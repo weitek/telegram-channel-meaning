@@ -68,6 +68,7 @@ def create_parser():
 Примеры использования:
   %(prog)s                                    # Интерактивный режим
   %(prog)s --fetch --period-offset 86400 0    # Получить сообщения за 24 часа
+  %(prog)s --fetch --limit 500                # Получить не более 500 сообщений по каналу
   %(prog)s --fetch --track-reactions          # С отслеживанием лайков
   %(prog)s --webhook --port 8080              # Запустить вебхук-сервер
   %(prog)s --clear --clear-period 999999999 604800  # Очистить старше 7 дней
@@ -133,6 +134,13 @@ def create_parser():
         '--delete-after',
         action='store_true',
         help='После обработки (отправка на URL или вывод) удалять полученные сообщения из БД'
+    )
+    fetch_group.add_argument(
+        '--limit', '-l',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Максимум сообщений за один запрос по каналу (переопределяет конфиг)'
     )
     
     # Вывод

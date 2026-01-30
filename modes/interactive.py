@@ -657,7 +657,11 @@ class InteractiveMode:
         total_messages = 0
         for channel_id in selected:
             messages = await self.telegram.fetch_messages_by_date(
-                channel_id, date_from, now, limit=500
+                channel_id,
+                date_from,
+                now,
+                limit=self.config.get_fetch_messages_limit(),
+                pause_seconds=self.config.get_fetch_messages_pause_seconds(),
             )
             
             # Сохраняем в базу

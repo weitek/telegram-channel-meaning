@@ -15,7 +15,7 @@
 | `get_dialogs(limit)` | Список каналов/чатов/личных сообщений |
 | `get_dialog_info(id)` | Подробная информация о канале/чате |
 | `fetch_messages(channel_id, offset_start, offset_end)` | Получение сообщений по смещению |
-| `fetch_messages_by_date(channel_id, date_from, date_to)` | Получение сообщений по датам |
+| `fetch_messages_by_date(channel_id, date_from, date_to, limit, pause_seconds)` | Получение сообщений по датам; при заданном `pause_seconds` — постраничное получение до конца диапазона с паузой между порциями |
 | `send_message(channel_id, text)` | Отправка сообщения |
 
 #### Пример использования
@@ -82,7 +82,9 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 {
   "selected_channels": [123456, 789012],
   "webhook_default_channel": null,
-  "channels_sort_type": "none"
+  "channels_sort_type": "none",
+  "fetch_messages_limit": 1000,
+  "fetch_messages_pause_seconds": 1
 }
 ```
 
@@ -109,6 +111,10 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `set_webhook_default_channel(id)` | Установить канал для вебхука |
 | `get_channels_sort_type()` | Текущий вид сортировки каналов/чатов |
 | `set_channels_sort_type(type)` | Установить вид сортировки каналов/чатов |
+| `get_fetch_messages_limit()` | Лимит сообщений за один запрос по каналу при получении |
+| `set_fetch_messages_limit(limit)` | Установить лимит сообщений (не менее 1) |
+| `get_fetch_messages_pause_seconds()` | Пауза в секундах между порциями при постраничном получении |
+| `set_fetch_messages_pause_seconds(seconds)` | Установить паузу между порциями (>= 0) |
 
 ---
 
@@ -131,6 +137,8 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 Выберите пункт: _
 ```
 
+При получении сообщений в подменю «Получить сообщения» используется постраничное получение до конца выбранного периода с паузой между порциями (из конфига `fetch_messages_pause_seconds`).
+
 #### Подменю "Каналы и чаты"
 
 ```
@@ -144,7 +152,7 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 
 ### 5. Command Mode (modes/command.py)
 
-Обработка CLI аргументов.
+Обработка CLI аргументов. При получении сообщений используется постраничное получение до конца диапазона дат с паузой между порциями (из конфига `fetch_messages_pause_seconds`).
 
 #### Аргументы
 
@@ -153,6 +161,7 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `--help` | Справка с информацией об аккаунте |
 | `--fetch` | Получить сообщения из выбранных каналов |
 | `--fetch-channel ID` | Получить из конкретного канала |
+| `--limit`, `-l N` | Максимум сообщений за один запрос по каналу (переопределяет конфиг) |
 | `--period-offset START END` | Период смещениями в секундах |
 | `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
@@ -269,6 +278,12 @@ python main.py
 
 ```bash
 python main.py --fetch --period-offset 86400 0
+```
+
+### Получить не более 500 сообщений по каналу
+
+```bash
+python main.py --fetch --limit 500
 ```
 
 ### Получить сообщения с отслеживанием лайков

@@ -105,6 +105,9 @@ python main.py
 # Получить сообщения за последние 24 часа
 python main.py --fetch --period-offset 86400 0
 
+# Получить не более 500 сообщений по каналу (размер порции)
+python main.py --fetch --limit 500
+
 # Получить из конкретного канала
 python main.py --fetch-channel -1001234567890 --period-offset 3600 0
 
@@ -120,6 +123,8 @@ python main.py --fetch --output json --send-url https://example.com/webhook
 # Очистить старые сообщения (старше 7 дней)
 python main.py --clear --clear-period 999999999 604800
 ```
+
+При большом периоде сообщения запрашиваются порциями; пауза между порциями задаётся в `data/config.json` (`fetch_messages_pause_seconds`).
 
 ### Вебхук режим
 
@@ -153,7 +158,7 @@ telegram-channel-meaning/
 ├── utils/
 │   ├── message_chains.py      # Логика цепочек сообщений
 │   ├── formatters.py          # Форматирование вывода
-│   └── timezone.py             # Временная зона из .env (TIMEZONE)
+│   └── timezone.py            # Временная зона из .env (TIMEZONE)
 └── docs/                      # Документация
     ├── architecture.md        # Архитектура приложения
     ├── structure.md           # Структура проекта
@@ -179,6 +184,7 @@ telegram-channel-meaning/
 | `--port`, `-p` | Порт для вебхук-сервера (8080) |
 | `--fetch`, `-f` | Получить сообщения |
 | `--fetch-channel ID` | Получить из конкретного канала |
+| `--limit`, `-l N` | Максимум сообщений за один запрос по каналу (переопределяет конфиг) |
 | `--period-offset START END` | Период смещениями в секундах |
 | `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
