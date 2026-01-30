@@ -83,10 +83,11 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
   "selected_channels": [123456, 789012],
   "webhook_default_channel": null,
   "channels_sort_type": "none",
-  "fetch_messages_limit": 1000,
-  "fetch_messages_pause_seconds": 1
+  "messages_sort_order": "telegram"
 }
 ```
+
+Лимиты получения сообщений задаются переменными окружения `FETCH_MESSAGES_LIMIT` и `FETCH_MESSAGES_PAUSE_SECONDS` (см. .env.example).
 
 #### Значения channels_sort_type
 
@@ -111,10 +112,8 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `set_webhook_default_channel(id)` | Установить канал для вебхука |
 | `get_channels_sort_type()` | Текущий вид сортировки каналов/чатов |
 | `set_channels_sort_type(type)` | Установить вид сортировки каналов/чатов |
-| `get_fetch_messages_limit()` | Лимит сообщений за один запрос по каналу при получении |
-| `set_fetch_messages_limit(limit)` | Установить лимит сообщений (не менее 1) |
-| `get_fetch_messages_pause_seconds()` | Пауза в секундах между порциями при постраничном получении |
-| `set_fetch_messages_pause_seconds(seconds)` | Установить паузу между порциями (>= 0) |
+| `get_fetch_messages_limit()` | Лимит сообщений за один запрос по каналу (из переменной окружения FETCH_MESSAGES_LIMIT) |
+| `get_fetch_messages_pause_seconds()` | Пауза между порциями в секундах (из переменной окружения FETCH_MESSAGES_PAUSE_SECONDS) |
 
 ---
 

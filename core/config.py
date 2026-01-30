@@ -17,8 +17,8 @@
   - "telegram" - как пришли/сформировались (по умолчанию)
   - "id_asc" - по telegram_id по возрастанию
   - "id_desc" - по telegram_id по убыванию
-- fetch_messages_limit: максимум сообщений за один запрос по каналу при получении (по умолчанию 1000)
-- fetch_messages_pause_seconds: пауза в секундах между порциями при постраничном получении (0 = без паузы)
+
+Лимиты получения сообщений задаются переменными окружения FETCH_MESSAGES_LIMIT и FETCH_MESSAGES_PAUSE_SECONDS (см. .env.example).
 """
 
 import json
@@ -37,8 +37,6 @@ class Config:
         "webhook_default_channel": None,
         "channels_sort_type": "none",
         "messages_sort_order": "telegram",
-        "fetch_messages_limit": 1000,
-        "fetch_messages_pause_seconds": 1,
     }
     
     def __init__(self, config_path: str = None):
@@ -209,49 +207,25 @@ class Config:
     def get_fetch_messages_limit(self) -> int:
         """
         Возвращает лимит сообщений за один запрос по каналу при получении.
+        Значение берётся из переменной окружения FETCH_MESSAGES_LIMIT.
 
         Returns:
             Максимальное количество сообщений (не менее 1)
         """
-        limit = self._config.get("fetch_messages_limit", 1000)
+        limit = os.environ.get("FETCH_MESSAGES_LIMIT", "1000")
         return max(1, int(limit))
-
-    def set_fetch_messages_limit(self, limit: int) -> None:
-        """
-        Устанавливает лимит сообщений за один запрос по каналу.
-
-        Args:
-            limit: Максимум сообщений (должен быть не менее 1)
-        """
-        limit = int(limit)
-        if limit < 1:
-            raise ValueError("Лимит сообщений должен быть не менее 1")
-        self._config["fetch_messages_limit"] = limit
-        self._save_config()
 
     def get_fetch_messages_pause_seconds(self) -> float:
         """
         Возвращает паузу в секундах между порциями при постраничном получении сообщений.
+        Значение берётся из переменной окружения FETCH_MESSAGES_PAUSE_SECONDS.
 
         Returns:
             Число секунд (>= 0); 0 — без паузы
         """
-        val = self._config.get("fetch_messages_pause_seconds", 1)
+        val = os.environ.get("FETCH_MESSAGES_PAUSE_SECONDS", "1")
         return max(0.0, float(val))
 
-    def set_fetch_messages_pause_seconds(self, seconds: float) -> None:
-        """
-        Устанавливает паузу между порциями при постраничном получении.
-
-        Args:
-            seconds: Пауза в секундах (должна быть >= 0)
-        """
-        seconds = float(seconds)
-        if seconds < 0:
-            raise ValueError("Пауза должна быть не менее 0")
-        self._config["fetch_messages_pause_seconds"] = seconds
-        self._save_config()
-    
     def get(self, key: str, default=None):
         """
         Получает значение из конфигурации.

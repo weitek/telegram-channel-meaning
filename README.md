@@ -69,6 +69,10 @@ DIALOGS_NAME_COL_WIDTH=30
 # (опционально) Временная зона для вывода дат и для --period-dates (IANA, например Europe/Moscow).
 # Если не задано — используется UTC (GMT+0).
 TIMEZONE=UTC
+
+# (опционально) Получение сообщений: размер порции и пауза между порциями
+FETCH_MESSAGES_LIMIT=1000
+FETCH_MESSAGES_PAUSE_SECONDS=1
 ```
 
 ### Способ 2: Переменные окружения системы
@@ -124,7 +128,7 @@ python main.py --fetch --output json --send-url https://example.com/webhook
 python main.py --clear --clear-period 999999999 604800
 ```
 
-При большом периоде сообщения запрашиваются порциями; пауза между порциями задаётся в `data/config.json` (`fetch_messages_pause_seconds`).
+При большом периоде сообщения запрашиваются порциями; размер порции и пауза между порциями задаются в `.env` (`FETCH_MESSAGES_LIMIT`, `FETCH_MESSAGES_PAUSE_SECONDS`).
 
 ### Вебхук режим
 
