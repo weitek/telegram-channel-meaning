@@ -32,6 +32,7 @@ env/
 *.swp
 *.swo
 *~
+.flake8
 
 # Project specific
 data/
