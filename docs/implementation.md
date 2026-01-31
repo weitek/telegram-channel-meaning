@@ -165,6 +165,7 @@ async with TelegramClientWrapper(api_id, api_hash) as tg:
 | `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
 | `--fetch-chains` | Получить начала цепочек |
+| `--chains-to-root` | Собирать цепочки до начала (подтягивать сообщения из БД и Telegram вне периода); действует при `--output json` |
 | `--output FORMAT` | Формат: text, json, json-no-chains, json-reactions |
 | `--send-url URL` | Отправить результат по URL |
 | `--clear` | Очистить сообщения |
@@ -295,6 +296,12 @@ python main.py --fetch --track-reactions --output json-reactions
 
 ```bash
 python main.py --fetch --output json --send-url https://example.com/hook
+```
+
+### Цепочки до начала (подтянуть предков из БД и Telegram вне периода)
+
+```bash
+python main.py --fetch --output json --chains-to-root
 ```
 
 ### Запустить вебхук-сервер

@@ -131,6 +131,11 @@ def create_parser():
         help='Получить начала цепочек сообщений'
     )
     fetch_group.add_argument(
+        '--chains-to-root',
+        action='store_true',
+        help='Собирать цепочки до начала (подтягивать сообщения из БД и Telegram вне периода)'
+    )
+    fetch_group.add_argument(
         '--delete-after',
         action='store_true',
         help='После обработки (отправка на URL или вывод) удалять полученные сообщения из БД'

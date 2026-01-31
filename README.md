@@ -124,6 +124,9 @@ python main.py --fetch --track-reactions --output json-reactions
 # Отправить результат по URL
 python main.py --fetch --output json --send-url https://example.com/webhook
 
+# Цепочки до начала (подтянуть предков из БД и Telegram вне периода)
+python main.py --fetch --output json --chains-to-root
+
 # Очистить старые сообщения (старше 7 дней)
 python main.py --clear --clear-period 999999999 604800
 ```
@@ -193,6 +196,7 @@ telegram-channel-meaning/
 | `--period-dates FROM TO` | Период датами (ISO формат); даты интерпретируются в зоне TIMEZONE из .env |
 | `--track-reactions` | Отслеживать изменения лайков |
 | `--fetch-chains` | Получить начала цепочек |
+| `--chains-to-root` | Собирать цепочки до начала (подтягивать сообщения из БД и Telegram вне периода); действует при `--output json` |
 | `--output FORMAT` | Формат: text, json, json-no-chains, json-reactions |
 | `--messages-sort ORDER` | Сортировка сообщений в выводе: `telegram`, `id_asc`, `id_desc` (CLI имеет приоритет над конфигом) |
 | `--send-url URL` | Отправить результат по URL |

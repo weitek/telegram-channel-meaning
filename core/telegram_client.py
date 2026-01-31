@@ -358,6 +358,29 @@ class TelegramClientWrapper:
             messages.append(msg_dict)
         return messages
     
+    async def fetch_message_by_id(
+        self, channel_id: int, message_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Получает одно сообщение из канала по Telegram ID сообщения.
+        
+        Args:
+            channel_id: ID канала
+            message_id: ID сообщения в Telegram
+            
+        Returns:
+            Словарь сообщения в формате _message_to_dict или None,
+            если сообщение не найдено/удалено/недоступно.
+        """
+        try:
+            entity = await self.client.get_entity(channel_id)
+        except Exception:
+            return None
+        messages = await self.client.get_messages(entity, ids=[message_id])
+        if not messages or messages[0] is None:
+            return None
+        return self._message_to_dict(messages[0], channel_id)
+    
     def _message_to_dict(self, message: Message, channel_id: int) -> Dict[str, Any]:
         """Конвертирует объект Message в словарь."""
         # Получаем информацию об отправителе

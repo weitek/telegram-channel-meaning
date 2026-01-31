@@ -231,6 +231,31 @@ class Database:
             row = cursor.fetchone()
             return dict(row) if row else None
     
+    def get_message_by_telegram_id_with_sender(
+        self, telegram_id: int, channel_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Получает сообщение по Telegram ID и каналу с данными отправителя.
+        
+        Returns:
+            Словарь с полями сообщения и sender_telegram_id, sender_first_name,
+            sender_last_name, sender_username (или None если сообщения нет).
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT m.*,
+                       s.telegram_id AS sender_telegram_id,
+                       s.first_name AS sender_first_name,
+                       s.last_name AS sender_last_name,
+                       s.username AS sender_username
+                FROM messages m
+                LEFT JOIN senders s ON m.sender_id = s.id
+                WHERE m.telegram_id = ? AND m.channel_id = ?
+            """, (telegram_id, channel_id))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
     def get_messages(self, channel_id: int = None, 
                     date_from: datetime = None,
                     date_to: datetime = None,

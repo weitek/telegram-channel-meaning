@@ -12,6 +12,7 @@ import asyncio
 import contextlib
 import io
 import json
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
@@ -170,6 +171,15 @@ class CommandHandler:
         if self.stdout_only_mode and not all_messages:
             return ""
         
+        # Подтягиваем предков цепочек до корня (только для --output json и --chains-to-root)
+        if (
+            self.args.output == 'json'
+            and getattr(self.args, 'chains_to_root', False)
+        ):
+            all_messages = await self._expand_chains_to_root(
+                all_messages, saved_message_ids
+            )
+        
         # Формируем вывод
         output = self._format_output(all_messages, channel_titles=channel_titles)
         
@@ -283,6 +293,103 @@ class CommandHandler:
         
         return date_from, date_to
     
+    @staticmethod
+    def _db_row_to_message_dict(row: Dict[str, Any]) -> Dict[str, Any]:
+        """Приводит строку БД (get_message_by_telegram_id_with_sender) к формату сообщения."""
+        sender = None
+        if row.get('sender_telegram_id') is not None:
+            sender = {
+                'id': row['sender_telegram_id'],
+                'first_name': row.get('sender_first_name'),
+                'last_name': row.get('sender_last_name'),
+                'username': row.get('sender_username'),
+            }
+        return {
+            'telegram_id': row['telegram_id'],
+            'channel_id': row['channel_id'],
+            'content': row.get('content') or '',
+            'date': row.get('date'),
+            'reply_to_msg_id': row.get('reply_to_msg_id'),
+            'reactions_count': row.get('reactions_count') or 0,
+            'raw_json': row.get('raw_json'),
+            'sender': sender,
+        }
+    
+    async def _expand_chains_to_root(
+        self,
+        all_messages: List[Dict[str, Any]],
+        saved_message_ids: List[int],
+    ) -> List[Dict[str, Any]]:
+        """
+        Подтягивает предков цепочек из БД и Telegram до корня.
+        Модифицирует saved_message_ids, добавляя ID вновь сохранённых сообщений.
+        """
+        by_channel: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+        for m in all_messages:
+            cid = m.get('channel_id')
+            if cid is not None:
+                by_channel[cid].append(m)
+        
+        for channel_id, msgs in list(by_channel.items()):
+            message_ids = {m['telegram_id'] for m in msgs}
+            queue: deque = deque()
+            for m in msgs:
+                rt = m.get('reply_to_msg_id')
+                if rt and rt > 0 and rt not in message_ids:
+                    queue.append(rt)
+            
+            while queue:
+                parent_id = queue.popleft()
+                if parent_id in message_ids:
+                    continue
+                row = self.database.get_message_by_telegram_id_with_sender(
+                    parent_id, channel_id
+                )
+                if row:
+                    msg_dict = self._db_row_to_message_dict(row)
+                    msgs.append(msg_dict)
+                    message_ids.add(msg_dict['telegram_id'])
+                    rt = msg_dict.get('reply_to_msg_id')
+                    if rt and rt > 0 and rt not in message_ids:
+                        queue.append(rt)
+                    continue
+                msg_dict = await self.telegram.fetch_message_by_id(
+                    channel_id, parent_id
+                )
+                if not msg_dict:
+                    continue
+                sender_id = None
+                if msg_dict.get('sender'):
+                    s = msg_dict['sender']
+                    sender_id = self.database.get_or_create_sender(
+                        s['id'],
+                        s.get('first_name'),
+                        s.get('last_name'),
+                        s.get('username'),
+                    )
+                db_msg_id = self.database.save_message(
+                    telegram_id=msg_dict['telegram_id'],
+                    channel_id=msg_dict['channel_id'],
+                    content=msg_dict['content'],
+                    date=msg_dict['date'],
+                    sender_id=sender_id,
+                    reply_to_msg_id=msg_dict.get('reply_to_msg_id'),
+                    reactions_count=msg_dict.get('reactions_count', 0),
+                    raw_json=msg_dict.get('raw_json'),
+                )
+                saved_message_ids.append(db_msg_id)
+                if getattr(self.args, 'track_reactions', False):
+                    self.database.save_reactions_snapshot(
+                        db_msg_id, msg_dict.get('reactions_count', 0)
+                    )
+                msgs.append(msg_dict)
+                message_ids.add(msg_dict['telegram_id'])
+                rt = msg_dict.get('reply_to_msg_id')
+                if rt and rt > 0 and rt not in message_ids:
+                    queue.append(rt)
+        
+        return [m for msgs in by_channel.values() for m in msgs]
+    
     def _format_output(
         self,
         messages: List[Dict[str, Any]],
@@ -321,6 +428,20 @@ class CommandHandler:
             return "\n".join(blocks).rstrip()
         
         elif output_format == 'json':
+            def _sort_chain_replies(chain: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                """Сортирует ответы в цепочке по sort_order (корень остаётся первым)."""
+                if len(chain) <= 1:
+                    return chain
+                root, replies = chain[0], chain[1:]
+                if sort_order in ("id_asc", "id_desc"):
+                    reverse = sort_order == "id_desc"
+                    replies = sorted(
+                        replies,
+                        key=lambda m: int(m.get("telegram_id", -1)),
+                        reverse=reverse,
+                    )
+                return [root] + replies
+
             if not is_multi_channel:
                 # Совместимость: прежняя структура при одном канале.
                 standalone, chains = separate_standalone_and_chains(messages)
@@ -332,9 +453,10 @@ class CommandHandler:
                     'chains': []
                 }
                 for chain in chains:
+                    chain_sorted = _sort_chain_replies(chain)
                     chain_data = {
-                        'root': format_message_json(chain[0]),
-                        'replies': [format_message_json(m) for m in chain[1:]]
+                        'root': format_message_json(chain_sorted[0]),
+                        'replies': [format_message_json(m) for m in chain_sorted[1:]]
                     }
                     data['chains'].append(chain_data)
                 return json.dumps(data, ensure_ascii=False, indent=2, default=str)
@@ -353,10 +475,11 @@ class CommandHandler:
                     "chains": [],
                 }
                 for chain in chains:
+                    chain_sorted = _sort_chain_replies(chain)
                     ch_data["chains"].append(
                         {
-                            "root": format_message_json(chain[0]),
-                            "replies": [format_message_json(m) for m in chain[1:]],
+                            "root": format_message_json(chain_sorted[0]),
+                            "replies": [format_message_json(m) for m in chain_sorted[1:]],
                         }
                     )
                 data["channels"].append(ch_data)
